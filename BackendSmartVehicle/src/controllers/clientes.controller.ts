@@ -17,8 +17,10 @@ import {
   del,
   requestBody,
   response,
+  HttpErrors,
 } from '@loopback/rest';
-import {Clientes} from '../models';
+import { Llaves } from '../config/llaves';
+import {Clientes, Credenciales} from '../models';
 import {ClientesRepository} from '../repositories';
 import {AutenticacionService} from '../services';
 const fetch = require('node-fetch');
@@ -32,6 +34,35 @@ export class ClientesController {
     @service(AutenticacionService)
     public servicioAutenticacion: AutenticacionService
   ) {}
+
+@post("/identificarCliente", {
+  responses : {
+    '200' : {
+      descripcion: "Identificación de usuarios"
+    }
+  }
+})
+async identificarCliente(
+  @requestBody() credenciales: Credenciales
+){
+  let cli = await this.servicioAutenticacion.IdentificarCliente(credenciales.usuario, credenciales.clave)
+  if (cli){
+    let token = this.servicioAutenticacion.GenerarTokenJWT(cli);
+    return {
+      datos:{
+        nombre: cli.nombres,
+        correo: cli.correo,
+        id: cli.id
+      },
+      tk: token
+    }
+  }else{
+    throw new HttpErrors[401]("Datos invalidos - está en el sistema");
+  }
+}
+
+
+
 
   @post('/clientes')
   @response(200, {
@@ -62,7 +93,7 @@ export class ClientesController {
     let asunto = "Creacion de cliente Smart Vehicle"
     let contenido = `Buen día señor@: ${clientes.nombres} ${clientes.apellidos}, se ha creado su usuario: ${clientes.correo}, 
                     su contraseña es: ${clave}`;
-    fetch(`http://127.0.0.1:5000/envio-correo?correo_destino=${destino}&asunto=${asunto}&contenido=${contenido}`)
+    fetch(`${Llaves.urlServicioNotificaciones}/envio-correo?correo_destino=${destino}&asunto=${asunto}&contenido=${contenido}`)
     .then((data: any) => {
       console.log(data)
     })
